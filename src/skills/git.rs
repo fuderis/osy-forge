@@ -2,22 +2,8 @@ use crate::{prelude::*, utils};
 
 use anylm::{
     IntoSchema, Messages, Schema,
-    api::Tool,
     completions::{Chunk, Completions},
 };
-
-pub fn tools_list() -> Vec<Tool> {
-    vec![
-        Tool::typed::<DiffAction>(
-            "diff",
-            "Analyzes git changes in the current workspace or specified path and provides an AI summary.",
-        ),
-        Tool::typed::<CommitAction>(
-            "commit",
-            "Generates conventional commit messages for current git changes and prompts user selection before committing.",
-        ),
-    ]
-}
 
 // ============================================================================
 // DTO STRUCTS
@@ -148,34 +134,30 @@ pub async fn handle_commit(tx: Sender<Bytes>, query: ToolQuery<CommitAction>) ->
         return Err(Error::Custom(str!("LLM failed to generate commit variants.")).into());
     }
 
-    let d_event_id = Id::new().to_string();
-    let d_event = DialogEvent::Select {
-        id: d_event_id.clone(),
-        prompt: "Choose a commit message:".to_string(),
-        items: variants.options.iter().map(|s| format!("{s}\n")).collect(),
-    };
-
-    let mut callback = Callback::register(&d_event_id).await;
-    tx.send(Event::Dialog(d_event))?;
-
-    let selection = atoman::select! {
-        _ = tx.closed() => return Err(Error::ConnectionClosed.into()),
-        res = callback.recv::<Option<usize>>(Duration::from_secs(120)) => res?,
-    };
-
-    let selected_msg = match selection {
-        Some(Some(idx)) => match variants.options.get(idx) {
-            Some(msg) => msg.trim().to_string(),
-            None => {
-                return Err(
-                    Error::Custom(format!("Selected index `{idx}` is out of bounds.")).into(),
-                );
-            }
-        },
-        _ => {
+    let selected_msg = match Dialog::select(
+        &tx,
+        "Choose a commit message:".to_string(),
+        variants.options.iter().map(|s| format!("{s}\n")).collect(),
+        Duration::from_secs(120),
+    )
+    .await?
+    {
+        Some(Some(idx)) => variants
+            .options
+            .get(idx)
+            .expect("Selected index is out of bounds.")
+            .trim()
+            .to_string(),
+        Some(None) => {
             return Err(
                 Error::Custom("Commit operation was cancelled by the user.".to_string()).into(),
             );
+        }
+        None => {
+            return Err(Error::Custom(
+                "Commit operation was aborted due to a timeout.".to_string(),
+            )
+            .into());
         }
     };
 

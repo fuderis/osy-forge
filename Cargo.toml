@@ -16,17 +16,17 @@
 [package]
 name = "osy-forge"
 description = "A developer agent. Provides tools for write applications and working with Git."
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 [dependencies]
 osy-share.path = "../osy-kernel/crates/share"
 osy-skill.path = "../osy-kernel/crates/skill"
 
-atoman = { version = "0.12.1", features = ["full"] }
+atoman = { version = "0.12.2", features = ["full"] }
 macron = { version = "0.5.2", features = ["full"] }
 rigging = { version = "0.5.11", features = ["full"] }
-pearce = { version = "0.6.2", features = ["full"] }
+pearce = { version = "0.7.0", features = ["full"] }
 anylm = { version = "0.4.2", features = ["full"] }
 
 serde = { version = "1.0.228", features = ["derive"] }

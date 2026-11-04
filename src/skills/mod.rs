@@ -1,8 +1,6 @@
 pub mod git;
 
 use crate::prelude::*;
-
-use anylm::api::Tool;
 use osy_skill::AgentSkill;
 
 /// System agent skills.
@@ -14,6 +12,13 @@ pub enum SkillKind {
         module = "git",
         description = "Working with Git commands (diff, commit)."
     )]
-    #[tools("diff", "commit")]
+    #[tool(
+        name = "diff",
+        description = "Analyzes git changes in the current workspace or specified path and provides an AI summary."
+    )]
+    #[tool(
+        name = "commit",
+        description = "Generates conventional commit messages for current git changes and prompts user selection before committing."
+    )]
     Git,
 }
