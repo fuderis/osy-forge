@@ -149,15 +149,13 @@ pub async fn handle_commit(tx: Sender<Bytes>, query: ToolQuery<CommitAction>) ->
             .trim()
             .to_string(),
         Some(None) => {
-            return Err(
-                Error::Custom("Commit operation was cancelled by the user.".to_string()).into(),
-            );
+            tx.send(Event::Answer(
+                "Commit operation was cancelled by the user.".to_string(),
+            ))?;
+            return Ok(());
         }
         None => {
-            return Err(Error::Custom(
-                "Commit operation was aborted due to a timeout.".to_string(),
-            )
-            .into());
+            return Err(Error::OperationTimeout.into());
         }
     };
 
