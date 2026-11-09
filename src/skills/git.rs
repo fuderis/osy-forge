@@ -96,66 +96,85 @@ pub async fn handle_commit(tx: Sender<Bytes>, query: ToolQuery<CommitAction>) ->
     tx.send(Event::Thinking("Checking git status and changes...".into()))?;
     let diff = utils::get_git_diff(&target_path).await?;
 
-    tx.send(Event::Thinking(
-        "Generating commit message variants...".into(),
-    ))?;
-
     let cfg = Config::get();
-    let messages = Messages::new()
-        .system(vec![cfg.llm.commit_prompt().into()])
-        .user(vec![
-            format!("Generate 3 commit message variants for this diff:\n\n```diff\n{diff}\n```")
-                .into(),
-        ])
-        .wrap();
 
-    #[derive(Deserialize, Schema)]
-    struct CommitVariants {
-        /// List of exactly 3 commit message options following Conventional Commits format.
-        pub options: Vec<String>,
-    }
+    let selected_msg = loop {
+        tx.send(Event::Thinking(
+            "Generating commit message variants...".into(),
+        ))?;
 
-    let mut response = Completions::try_from(cfg.llm.diff_options())?
-        .schema(CommitVariants::schema())
-        .send(messages)
-        .await?;
+        let messages = Messages::new()
+            .system(vec![cfg.llm.commit_prompt().into()])
+            .user(vec![
+                format!("Generate 2 distinct commit message variants for this diff:\n\n```diff\n{diff}\n```")
+                    .into(),
+            ])
+            .wrap();
 
-    let mut json_str = String::new();
-    while let Some(chunk) = response.next().await {
-        if let Chunk::Text(text) = chunk? {
-            json_str.push_str(&text);
+        #[derive(Deserialize, Schema)]
+        struct CommitVariants {
+            /// A concise single-line commit message summarizing the overall change (max 70-80 chars).
+            pub short_message: String,
+            /// A standard commit message with a single-line summary header, followed by a brief bulleted list detailing key changes.
+            pub detailed_message: String,
         }
-    }
 
-    let variants: CommitVariants = serde_json::from_str(&json_str)
-        .map_err(|e| Error::Titled("Failed to parse commit variants JSON".into(), e.into()))?;
+        let mut response = Completions::try_from(cfg.llm.diff_options())?
+            .schema(CommitVariants::schema())
+            .send(messages)
+            .await?;
 
-    if variants.options.is_empty() {
-        return Err(Error::Custom(str!("LLM failed to generate commit variants.")).into());
-    }
-
-    let selected_msg = match Dialog::select(
-        &tx,
-        "Choose a commit message:".to_string(),
-        variants.options.iter().map(|s| format!("{s}\n")).collect(),
-        Duration::from_secs(120),
-    )
-    .await?
-    {
-        Some(Some(idx)) => variants
-            .options
-            .get(idx)
-            .expect("Selected index is out of bounds.")
-            .trim()
-            .to_string(),
-        Some(None) => {
-            tx.send(Event::Answer(
-                "Commit operation was cancelled by the user.".to_string(),
-            ))?;
-            return Ok(());
+        let mut json_str = String::new();
+        while let Some(chunk) = response.next().await {
+            if let Chunk::Text(text) = chunk? {
+                json_str.push_str(&text);
+            }
         }
-        None => {
-            return Err(Error::OperationTimeout.into());
+
+        let variants: CommitVariants = serde_json::from_str(&json_str)
+            .map_err(|e| Error::Titled("Failed to parse commit variants JSON".into(), e.into()))?;
+
+        let format_quote = |text: &str| format!("```text\n{text}\n```\n</br>");
+
+        let select_options = vec![
+            format!("**Short:**\n{}", format_quote(&variants.short_message)),
+            format!(
+                "**Detailed:**\n{}",
+                format_quote(&variants.detailed_message)
+            ),
+            "🔄 Regenerate options...".to_string(),
+        ];
+
+        match Dialog::select(
+            &tx,
+            "Choose a commit message variant:".to_string(),
+            select_options,
+            Duration::from_secs(120),
+        )
+        .await?
+        {
+            Some(Some(idx)) => {
+                if idx == 2 {
+                    continue;
+                }
+
+                let chosen = if idx == 0 {
+                    variants.short_message
+                } else {
+                    variants.detailed_message
+                };
+
+                break chosen.trim().to_string();
+            }
+            Some(None) => {
+                tx.send(Event::Answer(
+                    "Commit operation was cancelled by the user.".to_string(),
+                ))?;
+                return Ok(());
+            }
+            None => {
+                return Err(Error::OperationTimeout.into());
+            }
         }
     };
 

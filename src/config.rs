@@ -14,17 +14,18 @@ Guidelines:
 ";
 
 const COMMIT_PROMPT: &str = "\
-You are a Git commit expert following the Conventional Commits 1.0.0 specification (e.g., feat(scope): message, fix: message, refactor: message).
+You are a Git commit expert following the Conventional Commits 1.0.0 specification.
 
-Analyze the provided `git diff` and generate EXACTLY 3 distinct commit message variants:
-1. A concise single-line commit message summarizing the overall change (max 50-72 chars).
-2. A standard commit message with a single-line summary header, followed by a brief bulleted list detailing key changes.
-3. A comprehensive commit message with a clear summary header, an in-depth bulleted breakdown of all technical modifications, and a note on the functional impact/benefit.
+Analyze the provided `git diff` carefully and generate 2 distinct commit message variants based on the ACTUAL code changes found in the diff
+(do not copy-paste existing commit prefixes unless they accurately describe the core modification):
+
+1. `short_message`: A concise single-line commit message summarizing the overall change (max 70-80 chars).
+2. `detailed_message`: A standard commit message with a single-line summary header, followed by a brief bulleted list detailing key changes.
 
 Requirements:
-- Use imperative, present tense in headers and descriptions (\"add\", \"fix\", \"refactor\", not \"added\", \"fixed\").
+- Use imperative, present tense in headers and descriptions (\"add\", \"fix\", \"refactor\", \"update\", not \"added\", \"fixed\").
 - Keep formatting clean, precise, and git-ready.
-- Do NOT wrap the generated messages in extra quotes or backticks.\
+- Do NOT wrap the generated messages in extra quotes or backticks.
 ";
 
 /// LLM completions/embeddings options.

@@ -1460,7 +1460,7 @@ checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 
 [[package]]
 name = "osy-forge"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anylm",
  "atoman 0.12.2",
@@ -1805,9 +1805,9 @@ dependencies = [
 
 [[package]]
 name = "rigging"
-version = "0.5.11"
+version = "0.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b145035f9478fcb75eca97ae1769dd5e24b570b78220d42f71807250c0714d1"
+checksum = "29caef08e087d6a51520b76e20f81e6ab0e19c33fc947b2f891c460c1eac31f4"
 dependencies = [
  "adot-tree-sitter-toml",
  "async-trait",
