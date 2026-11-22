@@ -3,6 +3,8 @@ use crate::prelude::*;
 use atoman::Command;
 use std::process::Stdio;
 
+const DIFF_EXCLUDES: &[&str] = &[":(exclude)Cargo.lock"];
+
 /// Checks for .git folder on the specified path.
 pub async fn ensure_git_repo(path: &Path) -> Result<()> {
     let git_dir = path.join(".git");
@@ -20,34 +22,36 @@ pub async fn ensure_git_repo(path: &Path) -> Result<()> {
     Ok(())
 }
 
+async fn run_git_diff(path: &Path, extra_args: &[&str]) -> Result<String> {
+    let mut cmd = Command::new("git");
+    cmd.arg("diff")
+        .args(extra_args)
+        .arg("--")
+        .arg(".")
+        .args(DIFF_EXCLUDES)
+        .current_dir(path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let output = cmd.output().await?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(Error::Custom(format!("Git diff failed: {err}")).into());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
 /// Scrapes out diff of the current working tree.
 pub async fn get_git_diff(path: &Path) -> Result<String> {
     ensure_git_repo(path).await?;
 
-    let output_staged = Command::new("git")
-        .args(["diff", "--cached"])
-        .current_dir(path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .await?;
-
-    let diff_staged = String::from_utf8_lossy(&output_staged.stdout).to_string();
-
+    let diff_staged = run_git_diff(path, &["--cached"]).await?;
     if !diff_staged.trim().is_empty() {
         return Ok(diff_staged);
     }
 
-    let output_head = Command::new("git")
-        .args(["diff", "HEAD"])
-        .current_dir(path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .await?;
-
-    let diff_head = String::from_utf8_lossy(&output_head.stdout).to_string();
-
+    let diff_head = run_git_diff(path, &["HEAD"]).await?;
     if diff_head.trim().is_empty() {
         return Err(Error::Custom(str!(
             "No changes detected in the repository (diff is empty)."

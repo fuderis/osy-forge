@@ -137,11 +137,8 @@ pub async fn handle_commit(tx: Sender<Bytes>, query: ToolQuery<CommitAction>) ->
         let format_quote = |text: &str| format!("```text\n{text}\n```\n</br>");
 
         let select_options = vec![
-            format!("**Short:**\n{}", format_quote(&variants.short_message)),
-            format!(
-                "**Detailed:**\n{}",
-                format_quote(&variants.detailed_message)
-            ),
+            format!("Short:\n{}", format_quote(&variants.short_message)),
+            format!("Detailed:\n{}", format_quote(&variants.detailed_message)),
             "🔄 Regenerate options...".to_string(),
         ];
 
