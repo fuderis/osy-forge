@@ -73,5 +73,7 @@ async fn serve(_: CommandContext) -> Result<()> {
         .post("/skills/{skill}/call/{tool}", hands::handle_tool_call)
         .callback(true)
         .run(sock_path)
-        .await
+        .await?;
+
+    Ok(())
 }

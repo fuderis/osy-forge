@@ -22,7 +22,7 @@ pub async fn handle_tool_call(
     query: Json<ToolQuery<JsonValue>>,
 ) -> Response {
     let (skill, tool) = paths;
-    info!("Initialized the `{skill}.{tool}` tool handling");
+    info!("Initialized the `{skill}.{tool}` tool handling.");
 
     Response::ok().stream(async move |tx| {
         if let Err(e) = skill.tool_call(tx.clone(), tool.clone(), query.0).await {
