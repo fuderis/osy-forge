@@ -261,17 +261,29 @@ pub async fn handle_release(tx: Sender<Bytes>, query: ToolQuery<ReleaseAction>) 
     });
 
     tx.send(Event::Thinking(format!(
-        "Creating and pushing tag `{tag}`..."
+        "Checking tag `{tag}` and pushing release..."
     )))?;
-    let tag_msg = format!("Release {tag}");
-    let tag_status =
-        utils::execute_git_tag(&tx, &target_path, &tag, Some(&tag_msg), Some("origin")).await?;
-    report_sections.push(format!("{tag_status} (version `{version}` from {source})."));
 
-    info!(
-        "Released `{tag}` on `{branch}` in `{}`",
-        target_path.display()
-    );
+    if utils::git_tag_exists(&tx, &target_path, &tag).await? {
+        info!(
+            "Tag `{tag}` already exists in `{}`, skipping tag creation",
+            target_path.display()
+        );
+        report_sections.push(format!(
+            "Tag `{tag}` already exists (version `{version}` from {source}); skipped creating tag."
+        ));
+    } else {
+        let tag_msg = format!("Release {tag}");
+        let tag_status =
+            utils::execute_git_tag(&tx, &target_path, &tag, Some(&tag_msg), Some("origin")).await?;
+        report_sections.push(format!("{tag_status} (version `{version}` from {source})."));
+
+        info!(
+            "Released `{tag}` on `{branch}` in `{}`",
+            target_path.display()
+        );
+    }
+
     tx.send(Event::Answer(report_sections.join("\n\n")))?;
     Ok(())
 }

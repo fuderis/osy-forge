@@ -168,8 +168,7 @@ pub async fn execute_git_tag(
     ensure_git_repo(tx, path).await?;
 
     let tag_q = shell_quote(tag);
-    let existing = run_git(tx, path, &format!("tag -l {tag_q}")).await?;
-    if existing.success && !existing.stdout.trim().is_empty() {
+    if git_tag_exists(tx, path, tag).await? {
         return Err(Error::Custom(format!("Tag `{tag}` already exists in repository.")).into());
     }
 
@@ -201,4 +200,17 @@ pub async fn execute_git_tag(
     }
 
     Ok(result)
+}
+
+/// Checks whether a tag with the given name already exists in the repository.
+pub async fn git_tag_exists(tx: &Sender<Bytes>, path: &Path, tag: &str) -> Result<bool> {
+    ensure_git_repo(tx, path).await?;
+
+    let tag_q = shell_quote(tag);
+    let existing = run_git(tx, path, &format!("tag -l {tag_q}")).await?;
+    if !existing.success {
+        return Err(Error::Custom(format!("Git tag lookup failed: {}", existing.stderr)).into());
+    }
+
+    Ok(!existing.stdout.trim().is_empty())
 }
