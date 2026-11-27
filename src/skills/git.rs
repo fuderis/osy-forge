@@ -61,12 +61,12 @@ pub async fn handle_diff(tx: Sender<Bytes>, query: ToolQuery<DiffAction>) -> Res
 
     let target_path = resolve_target_path(payload.path, current_path)?;
 
-    tx.send(Event::Thinking(
-        "Checking git repository and diff...".into(),
-    ))?;
+    tx.send(Event::Thinking("Checking git repository and diff...".into()).into())
+        .await?;
     let diff = utils::get_git_diff(&tx, &target_path, false).await?;
 
-    tx.send(Event::Thinking("Analyzing diff via LLM...".into()))?;
+    tx.send(Event::Thinking("Analyzing diff via LLM...".into()).into())
+        .await?;
 
     let cfg = Config::get();
     let messages = Messages::new()
@@ -101,7 +101,7 @@ pub async fn handle_diff(tx: Sender<Bytes>, query: ToolQuery<DiffAction>) -> Res
         "Git diff successfully analyzed for path `{}`",
         target_path.display()
     );
-    tx.send(Event::Answer(analysis.summary))?;
+    tx.send(Event::Answer(analysis.summary).into()).await?;
     Ok(())
 }
 
@@ -117,10 +117,10 @@ pub async fn handle_commit(tx: Sender<Bytes>, query: ToolQuery<CommitAction>) ->
     match run_commit_flow(&tx, &target_path).await? {
         CommitFlowResult::Committed(msg) => {
             info!("Git commit executed in `{}`", target_path.display());
-            tx.send(Event::Answer(msg))?;
+            tx.send(Event::Answer(msg).into()).await?;
         }
         CommitFlowResult::Cancelled(reason) => {
-            tx.send(Event::Answer(reason))?;
+            tx.send(Event::Answer(reason).into()).await?;
         }
     }
 
@@ -148,9 +148,8 @@ pub async fn handle_push(tx: Sender<Bytes>, query: ToolQuery<PushAction>) -> Res
         .filter(|s| !s.is_empty())
         .unwrap_or("origin");
 
-    tx.send(Event::Thinking(format!(
-        "Pushing `{branch}` to `{remote}`..."
-    )))?;
+    tx.send(Event::Thinking(format!("Pushing `{branch}` to `{remote}`...")).into())
+        .await?;
 
     let output = utils::execute_git_push(&tx, &target_path, remote, branch).await?;
     info!(
@@ -164,7 +163,7 @@ pub async fn handle_push(tx: Sender<Bytes>, query: ToolQuery<PushAction>) -> Res
         format!("Pushed `{branch}` to `{remote}`:\n\n```\n{output}\n```")
     };
 
-    tx.send(Event::Answer(msg))?;
+    tx.send(Event::Answer(msg).into()).await?;
     Ok(())
 }
 
@@ -178,7 +177,8 @@ pub async fn handle_tag(tx: Sender<Bytes>, query: ToolQuery<TagAction>) -> Resul
     let target_path = resolve_target_path(payload.path, current_path)?;
     let should_push = payload.push.unwrap_or(true);
 
-    tx.send(Event::Thinking("Resolving tag name...".into()))?;
+    tx.send(Event::Thinking("Resolving tag name...".into()).into())
+        .await?;
 
     let tag = match payload
         .tag
@@ -189,22 +189,24 @@ pub async fn handle_tag(tx: Sender<Bytes>, query: ToolQuery<TagAction>) -> Resul
         Some(t) => normalize_tag(t),
         None => {
             let Some((ver, _)) = pick_release_version(&tx, &target_path, None).await? else {
-                tx.send(Event::Answer(
-                    "Tag operation was cancelled by the user.".to_string(),
-                ))?;
+                tx.send(
+                    Event::Answer("Tag operation was cancelled by the user.".to_string()).into(),
+                )
+                .await?;
                 return Ok(());
             };
             normalize_tag(&ver)
         }
     };
 
-    tx.send(Event::Thinking(format!("Creating tag `{tag}`...")))?;
+    tx.send(Event::Thinking(format!("Creating tag `{tag}`...")).into())
+        .await?;
     let remote = should_push.then_some("origin");
     let status =
         utils::execute_git_tag(&tx, &target_path, &tag, payload.message.as_deref(), remote).await?;
 
     info!("Tag `{tag}` processed in `{}`", target_path.display());
-    tx.send(Event::Answer(format!("{status}.")))?;
+    tx.send(Event::Answer(format!("{status}.")).into()).await?;
     Ok(())
 }
 
@@ -227,32 +229,32 @@ pub async fn handle_release(tx: Sender<Bytes>, query: ToolQuery<ReleaseAction>) 
 
     let mut report_sections = Vec::new();
 
-    tx.send(Event::Thinking("Checking working tree status...".into()))?;
+    tx.send(Event::Thinking("Checking working tree status...".into()).into())
+        .await?;
     if utils::has_uncommitted_changes(&tx, &target_path).await? {
         match run_commit_flow(&tx, &target_path).await? {
             CommitFlowResult::Committed(commit_msg) => report_sections.push(commit_msg),
             CommitFlowResult::Cancelled(reason) => {
-                tx.send(Event::Answer(reason))?;
+                tx.send(Event::Answer(reason).into()).await?;
                 return Ok(());
             }
         }
     }
 
-    tx.send(Event::Thinking("Resolving release version...".into()))?;
+    tx.send(Event::Thinking("Resolving release version...".into()).into())
+        .await?;
     let Some((version, source)) =
         pick_release_version(&tx, &target_path, payload.version.as_deref()).await?
     else {
-        tx.send(Event::Answer(
-            "Release cancelled during crate selection.".to_string(),
-        ))?;
+        tx.send(Event::Answer("Release cancelled during crate selection.".to_string()).into())
+            .await?;
         return Ok(());
     };
 
     let tag = normalize_tag(&version);
 
-    tx.send(Event::Thinking(format!(
-        "Pushing `{branch}` to `origin`..."
-    )))?;
+    tx.send(Event::Thinking(format!("Pushing `{branch}` to `origin`...")).into())
+        .await?;
     let push_out = utils::execute_git_push(&tx, &target_path, "origin", branch).await?;
     report_sections.push(if push_out.is_empty() {
         format!("Pushed branch `{branch}` to `origin`.")
@@ -260,9 +262,8 @@ pub async fn handle_release(tx: Sender<Bytes>, query: ToolQuery<ReleaseAction>) 
         format!("Pushed branch `{branch}` to `origin`:\n\n```\n{push_out}\n```")
     });
 
-    tx.send(Event::Thinking(format!(
-        "Checking tag `{tag}` and pushing release..."
-    )))?;
+    tx.send(Event::Thinking(format!("Checking tag `{tag}` and pushing release...")).into())
+        .await?;
 
     if utils::git_tag_exists(&tx, &target_path, &tag).await? {
         info!(
@@ -284,7 +285,8 @@ pub async fn handle_release(tx: Sender<Bytes>, query: ToolQuery<ReleaseAction>) 
         );
     }
 
-    tx.send(Event::Answer(report_sections.join("\n\n")))?;
+    tx.send(Event::Answer(report_sections.join("\n\n")).into())
+        .await?;
     Ok(())
 }
 
@@ -312,12 +314,12 @@ fn normalize_tag(raw: &str) -> String {
 }
 
 async fn run_commit_flow(tx: &Sender<Bytes>, target_path: &Path) -> Result<CommitFlowResult> {
-    tx.send(Event::Thinking("Checking git status and changes...".into()))?;
+    tx.send(Event::Thinking("Checking git status and changes...".into()).into())
+        .await?;
     utils::ensure_git_repo(tx, target_path).await?;
 
     let mut stage_all = false;
     if utils::has_unstaged_changes(tx, target_path).await? {
-        info!("ЗАПУСУКАЕМ ПОДТВЕРЖДЕНИЕ");
         let confirmation = Dialog::confirm(
             tx,
             "There are unstaged or untracked changes not added via `git add`. Include them in the commit?".to_string(),
@@ -341,9 +343,8 @@ async fn run_commit_flow(tx: &Sender<Bytes>, target_path: &Path) -> Result<Commi
     let cfg = Config::get();
 
     let selected_msg = loop {
-        tx.send(Event::Thinking(
-            "Generating commit message variants...".into(),
-        ))?;
+        tx.send(Event::Thinking("Generating commit message variants...".into()).into())
+            .await?;
 
         let messages = Messages::new()
             .system(vec![cfg.llm.commit_prompt().into()])

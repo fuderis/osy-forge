@@ -16,15 +16,17 @@
 [package]
 name = "osy-forge"
 description = "A developer agent. Provides tools for write applications and working with Git."
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 
 [dependencies]
 osy-share.workspace = true
 osy-skill.workspace = true
 
-atoman.workspace = true
 macron.workspace = true
+atoman.workspace = true
+
+tokio.workspace = true
 rigging.workspace = true
 pearce.workspace = true
 anylm.workspace = true

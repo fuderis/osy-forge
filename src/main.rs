@@ -29,7 +29,7 @@ use osy_share::AgentMeta;
 use pearce::Server;
 use rigging::{CommandContext, Commands, pkg_meta};
 
-#[atoman::main]
+#[tokio::main]
 async fn main() -> Result<()> {
     osy_share::macos_proc_protect!();
 

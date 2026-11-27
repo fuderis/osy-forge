@@ -19,14 +19,12 @@ async fn run_git(tx: &Sender<Bytes>, path: &Path, git_args: &str) -> Result<Comm
     run_script(tx, cmd).await
 }
 
-/// Checks for .git folder or file on the client repository path.
+/// Checks whether `path` is inside a git working tree (including subdirectories).
 pub async fn ensure_git_repo(tx: &Sender<Bytes>, path: &Path) -> Result<()> {
-    let dir_q = shell_quote(&path.to_string_lossy());
-    let cmd = format!("test -d {dir_q}/.git -o -f {dir_q}/.git");
-    let res = run_script(tx, cmd).await?;
-    if !res.success {
+    let res = run_git(tx, path, "rev-parse --is-inside-work-tree").await?;
+    if !res.success || res.stdout.trim() != "true" {
         return Err(Error::Custom(format!(
-            "Directory `{}` is not a git repository (missing .git).",
+            "Path `{}` is not inside a git repository.",
             path.display()
         ))
         .into());

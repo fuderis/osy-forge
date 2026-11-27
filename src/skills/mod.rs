@@ -8,10 +8,7 @@ use osy_skill::AgentSkill;
 #[serde(rename_all = "snake_case")]
 #[display(rename_all = "snake_case")]
 pub enum SkillKind {
-    #[skill(
-        module = "git",
-        description = "Working with Git commands (diff, commit, push, tag, release)."
-    )]
+    /// Working with Git commands (diff, commit, push, tag, release).
     #[tool(
         name = "diff",
         description = "Analyzes git changes in the current workspace or specified path and provides an AI summary."

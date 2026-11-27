@@ -24,10 +24,13 @@ pub async fn handle_tool_call(
     let (skill, tool) = paths;
     info!("Initialized the `{skill}.{tool}` tool handling.");
 
-    Response::ok().stream(async move |tx| {
-        if let Err(e) = skill.tool_call(tx.clone(), tool.clone(), query.0).await {
-            error!("[handle_tool_call{{skill={skill}, tool={tool}}}] {e}");
-            tx.send(Event::Error(e.to_string())).ok();
-        }
-    })
+    Response::ok().stream(
+        async move |tx| {
+            if let Err(e) = skill.tool_call(tx.clone(), tool.clone(), query.0).await {
+                error!("[handle_tool_call{{skill={skill}, tool={tool}}}] {e}");
+                tx.send(Event::Error(e.to_string()).into()).await.ok();
+            }
+        },
+        1024,
+    )
 }
